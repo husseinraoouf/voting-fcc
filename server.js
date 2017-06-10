@@ -225,7 +225,10 @@ app.get('/poll/:id', function(req, res){
                   res.redirect('/');
               } else {
                   var pollarr = [ ['Task', 'Hours per Day'] ];
-                  var del = (req.user && result.userId === req.user._id);
+                //   console.log(result.userId);
+                //   console.log(req.user._id);
+                  var del = (req.user && result.userId.toString() == req.user._id.toString());
+                  console.log(del);
                   for (var i = 0; i < result.options.length; i++) {
                       var a = [result.options[i], result[result.options[i]]];
                       pollarr.push(a);
@@ -245,7 +248,7 @@ app.get('/delete/:id', function(req, res){
                   req.session.error = "That Poll Doesn't exist";
                   res.redirect('/');
               } else {
-                  if (req.user && result.userId === req.user._id) {
+                  if (req.user && result.userId.toString() == req.user._id.toString()) {
                       collection.remove({'_id': require('mongodb').ObjectID(req.params.id)}, function(er, data) {
                           req.session.success = 'The Poll deleted Successfully!';
                           res.redirect('/');

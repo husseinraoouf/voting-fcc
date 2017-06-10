@@ -23,7 +23,7 @@ exports.findOrCreate = function (profile, cb) {
         if (!result) {
             var user = {
               "provider" : profile.provider,
-            //   "_id" : profile.id,
+              "username" : profile.displayName,
               "displayName": profile.displayName
             }
             user[profile.provider+"Id"] = profile.id;

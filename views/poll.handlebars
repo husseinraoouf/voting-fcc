@@ -65,7 +65,7 @@
     <div>
         <input type="hidden" name="pollId" value="{{poll._id}}">
         <input type="submit" class="btn btn-primary" value="Vote!"/>
-        {{# if del}}
+        {{#if del}}
             <a class="btn btn-danger" href="/delete/{{poll._id}}">Delete</a>
         {{/if}}
     </div>
