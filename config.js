@@ -1,6 +1,6 @@
 module.exports = {
   "mongodbUri" : "mongodb://hussein:123456@ds143221.mlab.com:43221/heroku_pvgc3m6k",
-  "url" : "http://localhost:8080/",
+  "url" : "https://hussein-voting-fcc.herokuapp.com/",
 
   "TWITTER_CONSUMER_KEY" : "A15bjJQJNIDok4sCnRShKyzc3",
   "TWITTER_CONSUMER_SECRET" : "l2IhDC15Q4OKOTzMQOyff4Y10uP2jOptl2QAZfcWXOuJdVKZhY",
