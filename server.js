@@ -1,4 +1,4 @@
-var express = require('express'),
+const express = require('express'),
     exphbs = require('express-handlebars'),
     logger = require('morgan'),
     cookieParser = require('cookie-parser'),
@@ -8,23 +8,20 @@ var express = require('express'),
     passport = require('passport'),
     LocalStrategy = require('passport-local'),
     TwitterStrategy = require('passport-twitter'),
-    // GoogleStrategy = require('passport-google'),
     FacebookStrategy = require('passport-facebook'),
-    GoogleStrategy = require('passport-google-oauth').OAuth2Strategy;
+    GoogleStrategy = require('passport-google-oauth').OAuth2Strategy,
+    app = express(),
+    MongoClient = require('mongodb').MongoClient;
 
 
+    var config = require('./config.js');
+    var funct = require('./functions.js');
+    var User = require('./users.js');
 
 
-var funct = require('./functions.js');
-var User = require('./users.js');
-
-var mongodbUrl = 'mongodb://hussein:123456@ds143221.mlab.com:43221/heroku_pvgc3m6k';
-var MongoClient = require('mongodb').MongoClient;
+    var mongodbUrl = config.mongodbUri;
 
 
-var app = express();
-
-// Simple route middleware to ensure user is authenticated.
 function ensureAuthenticated(req, res, next) {
   if (req.isAuthenticated()) { return next(); }
   req.session.error = 'Please sign in!';
@@ -32,7 +29,9 @@ function ensureAuthenticated(req, res, next) {
 }
 
 
-app.use(logger('combined'));
+app.use(express.static('static'))
+
+// app.use(logger('combined'));
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
@@ -40,6 +39,7 @@ app.use(methodOverride('X-HTTP-Method-Override'));
 app.use(session({secret: 'supernova', saveUninitialized: true, resave: true}));
 app.use(passport.initialize());
 app.use(passport.session());
+app.use(express.static('static'))
 
 
 passport.use('local-signin', new LocalStrategy(
@@ -54,7 +54,7 @@ passport.use('local-signin', new LocalStrategy(
       }
       if (!user) {
         console.log("COULD NOT LOG IN");
-        req.session.error = 'Could not log user in. Please try again.'; //inform user could not log them in
+        req.session.error = 'Could not log user in. Please try again.';
         done(null, user);
       }
     })
@@ -87,31 +87,22 @@ passport.use('local-signup', new LocalStrategy(
   }
 ));
 
-var TWITTER_CONSUMER_KEY = "HDIrSZdEUlqBmeP66rbXsRfzg";
-var TWITTER_CONSUMER_SECRET = "FaEq7LQ7snflpGeZ2qFwC93r4KmOcdy1NX36RNjhp7J1jzzQaq";
-
 
 passport.use(new TwitterStrategy({
-    consumerKey: TWITTER_CONSUMER_KEY,
-    consumerSecret: TWITTER_CONSUMER_SECRET,
-    callbackURL: "https://hussein-voting-fcc.herokuapp.com/auth/twitter/callback"
+    consumerKey: config.TWITTER_CONSUMER_KEY,
+    consumerSecret: config.TWITTER_CONSUMER_SECRET,
+    callbackURL: config.url + "auth/twitter/callback"
   },
   function(token, tokenSecret, profile, cb) {
-    // In this example, the user's Twitter profile is supplied as the user
-    // record.  In a production-quality application, the Twitter profile should
-    // be associated with a user record in the application's database, which
-    // allows for account linking and authentication with other identity
-    // providers.
-    // console.log(profile);
     User.findOrCreate(profile, cb);
   }
 ));
 
 
 passport.use(new GoogleStrategy({
-    clientID: "192489128144-7c2s53kfu7p2cspo476sgp6g4tt5u6i3.apps.googleusercontent.com",
-    clientSecret: "VUZvwZ-DJ-uzHDs639GPIx8w",
-    callbackURL: "https://hussein-voting-fcc.herokuapp.com/auth/google/callback"
+    clientID: config.GOOGLE_CLIENT_ID,
+    clientSecret: config.GOOGLE_CLIENT_SECRET,
+    callbackURL: config.url + "auth/google/callback"
   },
   function(accessToken, refreshToken, profile, done) {
       User.findOrCreate(profile, done);
@@ -119,26 +110,29 @@ passport.use(new GoogleStrategy({
 ));
 
 passport.use(new FacebookStrategy({
-    clientID: "1147482535398076",
-    clientSecret: "8b7b3c0c90a1804ce787d05277f08712",
-    callbackURL: "https://hussein-voting-fcc.herokuapp.com/auth/facebook/callback"
+    clientID: config.FACEBOOK_CLIENT_ID,
+    clientSecret: config.FACEBOOK_CLIENT_SECRET,
+    callbackURL: config.url + "auth/facebook/callback"
   },
   function(accessToken, refreshToken, profile, done) {
       User.findOrCreate(profile, done);
-    // console.log("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"+ profile+"\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
-    //   return done(null, profile);
   }
 ));
 
 
 passport.serializeUser(function(user, done) {
   console.log("serializing " + user.username);
-  done(null, user);
+  done(null, user._id);
 });
 
 passport.deserializeUser(function(obj, done) {
   console.log("deserializing " + obj);
-  done(null, obj);
+  MongoClient.connect(mongodbUrl, function (err, db) {
+      var collection = db.collection('users');
+      collection.findOne({_id: require('mongodb').ObjectID(obj)}).then(function(result){
+          done(null, result);
+      });
+  });
 });
 
 
@@ -167,22 +161,20 @@ app.set('view engine', 'handlebars');
 
 
 app.get('/', function(req, res){
-    // console.log(req.user);
     MongoClient.connect(mongodbUrl, function (err, db) {
         var collection = db.collection('polls');
         collection.find().toArray(function(err, result) {
             if (!result) {
-                res.render('home', {polls: [], user: req.user});
+                res.render('home', {polls: [], user: req.user, title: 'Voting App'});
             } else {
-                res.render('home', {polls: result, user: req.user});
+                res.render('home', {polls: result, user: req.user, title: 'Voting App'});
             }
         });
     });
-    //   res.render('home', {user: req.user, polls:});
 });
 
 app.get('/newpoll',ensureAuthenticated, function(req, res){
-  res.render('newpoll', {user: req.user});
+  res.render('newpoll', {user: req.user, title: 'Voting App | New Poll'});
 });
 
 
@@ -238,8 +230,7 @@ app.get('/poll/:id', function(req, res){
                       var a = [result.options[i], result[result.options[i]]];
                       pollarr.push(a);
                   }
-                  console.log(pollarr);
-                  res.render('poll', {poll: result, user: req.user, del: del, pollarr: pollarr});
+                  res.render('poll', {poll: result, user: req.user, del: del, pollarr: pollarr, title: 'Voting App | ' + result.title});
               }
         });
     });
@@ -268,29 +259,24 @@ app.get('/delete/:id', function(req, res){
     });
 });
 app.get('/mypolls', function(req, res){
-    // console.log(req.user);
     MongoClient.connect(mongodbUrl, function (err, db) {
         var collection = db.collection('polls');
         collection.find({"userId" : req.user._id}).toArray(function(err, result) {
-            console.log(result + "\n\n\n\n\n\n\n\n\n" + req.user._id + "\n\n\n\n\n\n\n\n\n");
-            res.render('mypolls', {polls: result, user: req.user});
+            res.render('mypolls', {polls: result, user: req.user, title: 'Voting App | My Polls'});
 
         });
     });
-    //   res.render('home', {user: req.user, polls:});
 });
 
 
 app.post('/vote', function(req, res){
     MongoClient.connect(mongodbUrl, function (err, db) {
         var collection = db.collection('polls');
-        // console.log("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"+ req.body.pollId +"\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
 
         var a = {
             $inc: {}
         }
         a.$inc[req.body.q] = 1;
-        // console.log("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"+ JSON.stringify(a) +"\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
         collection.update({'_id': require('mongodb').ObjectID(req.body.pollId)}, a, function(er, result) {
             if (er) {
                 db.close();
@@ -308,7 +294,7 @@ app.post('/vote', function(req, res){
 
 
 app.get('/signin', function(req, res){
-  res.render('signin');
+  res.render('signin', {title: 'Voting App | Sign In'});
 });
 
 app.post('/local-reg', passport.authenticate('local-signup', {
@@ -370,5 +356,4 @@ app.get('/auth/facebook/callback',
 var port = process.argv[2];
 app.listen(port, function() {
   console.log('server listening on port ' + port);
-  console.log('http://127.0.0.1:'+port);
 });
